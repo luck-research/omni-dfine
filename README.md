@@ -29,7 +29,7 @@ English
 
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/Peterande/storage/master/figs/stats_padded.png" width="1000">
+    <img src="./main_pipline.jpg" width="1000">
 </p>
 
 Open-vocabulary object detection aims to localize arbitrary objects specified by text or image prompts beyond a fixed category set. Current SOTA methods, however, exhibit a fundamental trade-off between inference efficiency and cross-domain generalization. YOLO-based architectures (e.g., YOLO-World, YOLOE) achieve real-time speed but lack robustness in open domains, whereas DETR-based counterparts (e.g., Grounding DINO, T-Rex2) offer superior accuracy at the cost of slow inference and complex pre-training, limiting edge deployment. We overcome this trade-off by by introducing Omni-DFINE, a lightweight DETR-based framework that harmonizes speed, accuracy, and generalization. Our approach integrates efficient feature fusion with a redesigned prompt encoder and a novel vision-language contrastive constraint module. This design effectively aligns image and text prompt representations, substantially boosting cross-domain robustness while preserving real-time inference. Trained solely on standard datasets, Omni-DFINE achieves a new Pareto frontier in open-set detection, attaining \textbf{44.5}, \textbf{42.1}, and \textbf{40.1} mAP on COCO for its Base, Small, and Nano variants. Remarkably, the Base model surpasses Grounding DINO 1.5 Edge using only \textbf{0.03\%} of the training data with inference latency under \textbf{30ms} (Nano: \textbf{8ms}). 
