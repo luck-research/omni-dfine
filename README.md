@@ -4,7 +4,7 @@ Real-time Unified Vision-Language Prompting for Open-Vocabulary Detection
 
 <!--# [Omni-dfine: Real-time Unified Vision-Language Prompting for Open-Vocabulary Detection](https://arxiv.org/abs/xxxxxx) -->
 
-English | [简体中文](README_cn.md)
+English
 
 <h2 align="center">
   Omni-dfine: Real-time Unified Vision-Language Prompting for Open-Vocabulary Detection
@@ -13,7 +13,7 @@ English | [简体中文](README_cn.md)
 
 
 <p align="center">
-    <a href="https://github.com/Peterande/D-FINE/blob/master/LICENSE">
+    <a href="https://github.com/luck-research/omni-dfine/blob/main/LICENSE">
         <img alt="license" src="https://img.shields.io/badge/LICENSE-Apache%202.0-blue">
     </a>
 </p>
