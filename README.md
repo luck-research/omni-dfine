@@ -131,9 +131,11 @@ data/
 
 ## Figures and Visualizations
 
-<details>
-<summary> Results </summary>
 
+
+<p align="center">
+    <img src="./arc_alg_model.png" width="1000">
+</p>
 
 
 
