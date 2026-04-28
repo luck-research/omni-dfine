@@ -49,7 +49,7 @@ Open-vocabulary object detection aims to localize arbitrary objects specified by
 | :---: | :---: | :---: |  :---: | :---: | :---: | :---: | :---: | :---: |
 **Omni-D&#8209;FINE&#8209;N** | COCO |  **40.1**  | 11.2M | 61 | 32 | [yml](./configs/dfine/dfine_hgnetv2_n_coco.yml) | [40.1]() | [url]()
 **Omni-D&#8209;FINE&#8209;S** | COCO |  **42.1**  | 23.5M | 54 | 72 | [yml](./configs/dfine/dfine_hgnetv2_s_coco.yml) | [42.1]() | [url]()
-**Omini-D&#8209;FINE&#8209;M** | COCO | **44.5** | 36.4M  | 40 | 118 | [yml](./configs/dfine/dfine_hgnetv2_m_coco.yml) | [44.5]) | [url]()
+**Omni-D&#8209;FINE&#8209;M** | COCO | **44.5** | 36.4M  | 40 | 118 | [yml](./configs/dfine/dfine_hgnetv2_m_coco.yml) | [44.5]() | [url]()
 
 
 
