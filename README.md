@@ -1,6 +1,8 @@
 # omni-dfine
 Real-time Unified Vision-Language Prompting for Open-Vocabulary Detection
-
+<p align="center">
+    <img src="./logo.png" width="200">
+</p>
 
 <!--# [Omni-dfine: Real-time Unified Vision-Language Prompting for Open-Vocabulary Detection](https://arxiv.org/abs/xxxxxx) -->
 
@@ -42,12 +44,12 @@ Open-vocabulary object detection aims to localize arbitrary objects specified by
 
 ## Model Zoo
 
-### COCO
-| Model | Dataset | AP<sup>val</sup> | #Params | Latency | GFLOPs | config | checkpoint | logs |
+### Zero Shot On COCO (TensorRT with fp16)
+| Model | Dataset | AP<sup>val</sup> | #Params | Fps | GFLOPs | config | checkpoint | logs |
 | :---: | :---: | :---: |  :---: | :---: | :---: | :---: | :---: | :---: |
-**Omni-D&#8209;FINE&#8209;N** | COCO | **42.8** | 4M | 2.12ms | 7 | [yml](./configs/dfine/dfine_hgnetv2_n_coco.yml) | [42.8](https://github.com/Peterande/storage/releases/download/dfinev1.0/dfine_n_coco.pth) | [url](https://raw.githubusercontent.com/Peterande/storage/refs/heads/master/logs/coco/dfine_n_coco_log.txt)
-**Omni-D&#8209;FINE&#8209;S** | COCO | **48.5** | 10M | 3.49ms | 25 | [yml](./configs/dfine/dfine_hgnetv2_s_coco.yml) | [48.5](https://github.com/Peterande/storage/releases/download/dfinev1.0/dfine_s_coco.pth) | [url](https://raw.githubusercontent.com/Peterande/storage/refs/heads/master/logs/coco/dfine_s_coco_log.txt)
-**Omini-D&#8209;FINE&#8209;M** | COCO | **52.3** | 19M | 5.62ms | 57 | [yml](./configs/dfine/dfine_hgnetv2_m_coco.yml) | [52.3](https://github.com/Peterande/storage/releases/download/dfinev1.0/dfine_m_coco.pth) | [url](https://raw.githubusercontent.com/Peterande/storage/refs/heads/master/logs/coco/dfine_m_coco_log.txt)
+**Omni-D&#8209;FINE&#8209;N** | COCO |  **40.1**  | 11.2M | 61 | 32 | [yml](./configs/dfine/dfine_hgnetv2_n_coco.yml) | [40.1]() | [url]()
+**Omni-D&#8209;FINE&#8209;S** | COCO |  **42.1**  | 23.5M | 54 | 72 | [yml](./configs/dfine/dfine_hgnetv2_s_coco.yml) | [42.1]() | [url]()
+**Omini-D&#8209;FINE&#8209;M** | COCO | **44.5** | 36.4M  | 40 | 118 | [yml](./configs/dfine/dfine_hgnetv2_m_coco.yml) | [44.5]) | [url]()
 
 
 
