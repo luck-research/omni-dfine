@@ -1,0 +1,45 @@
+# ============================================================================
+# Omni-DFINE dataloader defaults.
+# Mirrors `configs/dfine/include/dataloader.yml` of the original D-FINE repo.
+# All variants (S / M / L) inherit these defaults and override only what
+# their per-variant config specifies (typically `base_size_repeat`).
+# ============================================================================
+
+train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBoxes, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: SanitizeBoundingBoxes, min_size: 1}
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+        - {type: ConvertBoxes, fmt: 'cxcywh', normalize: True}
+      policy:
+        name: stop_epoch
+        epoch: 56
+        ops: ['RandomPhotometricDistort', 'RandomZoomOut', 'RandomIoUCrop']
+
+  collate_fn:
+    type: BatchImageCollateFunction
+    base_size: 640
+    base_size_repeat: 3
+    stop_epoch: 56
+
+  shuffle: True
+  total_batch_size: 32                # paper § IV.A uses 288 on 24 A40 GPUs
+  num_workers: 4
+
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+  shuffle: False
+  total_batch_size: 64
+  num_workers: 4

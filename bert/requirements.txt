@@ -1,0 +1,5 @@
+# Omni-DFINE minimal implementation -- minimal runtime requirements.
+# Tested with Python 3.12 and PyTorch 2.x (CPU build is sufficient for the
+# smoke tests). CUDA is optional.
+torch>=2.0
+numpy>=1.20

@@ -1,0 +1,151 @@
+# ============================================================================
+# Omni-DFINE -- Small variant (HGNetv2 B0) -- COCO zero-shot eval
+# ----------------------------------------------------------------------------
+# Paper § IV.A and Table III:
+#   * Backbone: HGNetv2-B0
+#   * Total params: 11.2 M
+#   * FLOPs: 32.5 G
+#   * FPS (A40, TensorRT FP16, batch=1): 61.9
+#   * Latency (A40, batch=1): 16.2 ms
+#   * COCO AP (Text prompt): 40.1 (Objects365-only) / 41.8 (O365+GoldG)
+#   * COCO AP (Visual-G):     38.8 (Objects365-only)
+#   * LVISminival APall (Text): 28.3 (O365) / ~30 (O365+GoldG)
+#   * 1-layer encoder, 6-layer decoder, 500 queries.
+#
+# This config mirrors `dfine_hgnetv2_s_coco.yml` of the original D-FINE repo
+# but adds the three Omni-DFINE modules (LSDPE, LW-VTFE, HHA) and the BERT
+# text branch. It targets the COCO zero-shot benchmark from the paper.
+# ============================================================================
+
+__include__:
+  - '../dataset/coco_detection.yml'
+  - '../runtime.yml'
+  - './include/dataloader.yml'
+  - './include/optimizer.yml'
+  - './include/omni_dfine_hgnetv2.yml'
+
+
+output_dir: ./output/omni_dfine_hgnetv2_s_coco
+
+
+OmniDFINE:
+  backbone: HGNetv2
+  text_backbone: BERTTextBackbone
+  prompt_encoder: LSDPE
+  fusion: LWVTFE
+  encoder: HybridEncoder
+  decoder: DFINETransformer
+
+
+# ---------------------------------------------------------------------------- #
+# Image backbone -- HGNetv2 B0 (Small)
+# ---------------------------------------------------------------------------- #
+HGNetv2:
+  name: 'B0'
+  return_idx: [1, 2, 3]
+  freeze_at: -1                       # do not freeze the small backbone (paper)
+  freeze_norm: False
+  use_lab: True
+
+
+# ---------------------------------------------------------------------------- #
+# Text backbone -- BERT-base shared across all variants.
+# ---------------------------------------------------------------------------- #
+BERTTextBackbone:
+  pretrained: 'bert-base-uncased'
+  hidden_dim: 768
+  text_proj_dim: 256
+  freeze_at: 0
+  freeze_norm: True
+  max_tokens: 96
+  use_cache: True
+
+
+# ---------------------------------------------------------------------------- #
+# Hybrid image encoder -- Small variant
+# ---------------------------------------------------------------------------- #
+HybridEncoder:
+  in_channels: [256, 512, 1024]       # HGNetv2-B0 stage outputs
+  hidden_dim: 256
+  depth_mult: 0.34                    # paper-derived depth multiplier
+  expansion: 0.5
+
+
+# ---------------------------------------------------------------------------- #
+# DFINE decoder -- Small variant
+# ---------------------------------------------------------------------------- #
+DFINETransformer:
+  num_layers: 3                       # paper § IV.A: 6-layer decoder is shared
+  eval_idx: -1                        # across variants; we keep D-FINE's S
+                                      # variant decoder depth of 3 for fair
+                                      # comparison with `dfine_hgnetv2_s_coco`.
+  num_queries: 500                    # paper § IV.A
+
+
+# ---------------------------------------------------------------------------- #
+# LSDPE -- alpha = 0.9 (paper Table VI optimum)
+# ---------------------------------------------------------------------------- #
+LSDPE:
+  alpha: 0.9
+  in_channels: 256
+
+
+# ---------------------------------------------------------------------------- #
+# LW-VTFE -- 256-dim fusion, tau init 0.1
+# ---------------------------------------------------------------------------- #
+LWVTFE:
+  embed_dim: 256
+  tau_init: 0.1
+
+
+# ---------------------------------------------------------------------------- #
+# Optimizer -- Small variant
+# Paper § IV.A: lr=1e-4 base; image+text backbone lr=5e-5; batch=288; 20 epochs.
+# We use a smaller per-step lr here because the typical single-GPU batch size
+# is much smaller than 288; scale up `total_batch_size` if running on the
+# paper's setup (24 A40 GPUs).
+# ---------------------------------------------------------------------------- #
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.00005
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      params: '^(?=.*text_backbone)(?!.*norm|bn).*$'
+      lr: 0.00005
+    -
+      params: '^(?=.*text_backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder|fusion|prompt_encoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+
+# ---------------------------------------------------------------------------- #
+# Schedule -- 20 epochs (paper § IV.A)
+# ---------------------------------------------------------------------------- #
+epochs: 20
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 16                      # stop mosaic-style ops at epoch 16
+  collate_fn:
+    stop_epoch: 16
+    ema_restart_decay: 0.9999
+    base_size_repeat: 20
+
+
+# Paper reports std-dev of ±0.12 mAP across 3 seeds for the S variant
+# (§ IV.G "Statistical Validation"). Use 3 different seeds for replication.
+seed: 0

@@ -1,0 +1,142 @@
+# ============================================================================
+# Omni-DFINE -- Medium variant (HGNetv2 B2) -- COCO zero-shot eval
+# ----------------------------------------------------------------------------
+# Paper § IV.A and Table III:
+#   * Backbone: HGNetv2-B2
+#   * Total params: 23.5 M
+#   * FLOPs: 72.1 G
+#   * FPS (A40, TensorRT FP16, batch=1): 54.9
+#   * Latency (A40, batch=1): 18.2 ms
+#   * COCO AP (Text prompt): 42.1 (Objects365-only) / 43.9 (O365+GoldG)
+#   * COCO AP (Visual-G):     40.9 (Objects365-only)
+#   * LVISminival APall (Text): 30.8 (O365) / ~32 (O365+GoldG)
+#   * 1-layer encoder, 6-layer decoder, 500 queries.
+# ============================================================================
+
+__include__:
+  - '../dataset/coco_detection.yml'
+  - '../runtime.yml'
+  - './include/dataloader.yml'
+  - './include/optimizer.yml'
+  - './include/omni_dfine_hgnetv2.yml'
+
+
+output_dir: ./output/omni_dfine_hgnetv2_m_coco
+
+
+OmniDFINE:
+  backbone: HGNetv2
+  text_backbone: BERTTextBackbone
+  prompt_encoder: LSDPE
+  fusion: LWVTFE
+  encoder: HybridEncoder
+  decoder: DFINETransformer
+
+
+# ---------------------------------------------------------------------------- #
+# Image backbone -- HGNetv2 B2 (Medium)
+# ---------------------------------------------------------------------------- #
+HGNetv2:
+  name: 'B2'
+  return_idx: [1, 2, 3]
+  freeze_at: -1
+  freeze_norm: False
+  use_lab: True
+
+
+# ---------------------------------------------------------------------------- #
+# Text backbone -- BERT-base (shared across variants).
+# ---------------------------------------------------------------------------- #
+BERTTextBackbone:
+  pretrained: 'bert-base-uncased'
+  hidden_dim: 768
+  text_proj_dim: 256
+  freeze_at: 0
+  freeze_norm: True
+  max_tokens: 96
+  use_cache: True
+
+
+# ---------------------------------------------------------------------------- #
+# Hybrid image encoder -- Medium variant
+# ---------------------------------------------------------------------------- #
+HybridEncoder:
+  in_channels: [384, 768, 1536]      # HGNetv2-B2 stage outputs
+  hidden_dim: 256
+  depth_mult: 0.67                    # paper-derived depth multiplier
+  expansion: 0.5
+
+
+# ---------------------------------------------------------------------------- #
+# DFINE decoder -- Medium variant
+# ---------------------------------------------------------------------------- #
+DFINETransformer:
+  num_layers: 4                       # paper § IV.A: 6-layer decoder; we use 4
+  eval_idx: -1                        # for parity with `dfine_hgnetv2_m_coco`.
+  num_queries: 500                    # paper § IV.A
+
+
+# ---------------------------------------------------------------------------- #
+# LSDPE -- same alpha for all variants (paper Table VI)
+# ---------------------------------------------------------------------------- #
+LSDPE:
+  alpha: 0.9
+  in_channels: 256
+
+
+# ---------------------------------------------------------------------------- #
+# LW-VTFE -- 256-dim fusion
+# ---------------------------------------------------------------------------- #
+LWVTFE:
+  embed_dim: 256
+  tau_init: 0.1
+
+
+# ---------------------------------------------------------------------------- #
+# Optimizer -- Medium variant
+# The Medium variant can use slightly higher backbone lr than Small
+# (paper § IV.A reports the same 5e-5 for image+text backbones across
+# variants, but D-FINE's M config uses 2e-5 -- we follow the paper).
+# ---------------------------------------------------------------------------- #
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.00005
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      params: '^(?=.*text_backbone)(?!.*norm|bn).*$'
+      lr: 0.00005
+    -
+      params: '^(?=.*text_backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder|fusion|prompt_encoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0002
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+
+# ---------------------------------------------------------------------------- #
+# Schedule -- 20 epochs (paper § IV.A)
+# ---------------------------------------------------------------------------- #
+epochs: 20
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 16
+  collate_fn:
+    stop_epoch: 16
+    ema_restart_decay: 0.9999
+    base_size_repeat: 6
+
+
+seed: 0

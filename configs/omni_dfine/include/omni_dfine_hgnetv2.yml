@@ -1,0 +1,177 @@
+# ============================================================================
+# Omni-DFINE shared include file
+# ----------------------------------------------------------------------------
+# Common defaults for all three Omni-DFINE variants (S / M / L).
+# Mirrors `configs/dfine/include/dfine_hgnetv2.yml` of the original D-FINE
+# repo, with the following additions for the Omni-DFINE modules:
+#
+#   * TextBackbone            : BERT-base text encoder (HuggingFace).
+#   * LSDPE                   : Lightweight Spectral-Decoupled Prompt Encoder.
+#   * LW-VTFE                 : Lightweight Orthogonal Vision-Text Enhancer.
+#   * HHALoss                 : Hierarchical Harmonic Alignment contrastive loss
+#                               (replaces / augments the standard VFL classifier
+#                               loss used by D-FINE; kept here as a *separate*
+#                               loss term so the existing VFL head still runs
+#                               unchanged and the user can A/B test by toggling
+#                               `criterion.losses`).
+# ============================================================================
+
+task: detection
+model: OmniDFINE
+criterion: OmniDFINECriterion
+postprocessor: DFINEPostProcessor
+
+use_focal_loss: True
+eval_spatial_size: [640, 640] # h w
+
+OmniDFINE:
+  backbone: HGNetv2
+  text_backbone: BERTTextBackbone
+  encoder: HybridEncoder
+  prompt_encoder: LSDPE
+  fusion: LWVTFE
+  decoder: DFINETransformer
+
+
+# ---------------------------------------------------------------------------- #
+# Image backbone -- HGNetv2 (paper: HGNetV2 S=B0, M=B2, L=B4)
+# ---------------------------------------------------------------------------- #
+HGNetv2:
+  pretrained: True
+  local_model_dir: weight/hgnetv2/
+
+
+# ---------------------------------------------------------------------------- #
+# Text backbone -- BERT-base, 12-layer, hidden_dim=768.
+# The paper trains Omni-DFINE on Objects365+GoldG with BERT-base as the text
+# encoder. The text branch is shared across all variants; only the *image*
+# backbone scales.
+# ---------------------------------------------------------------------------- #
+BERTTextBackbone:
+  pretrained: 'bert-base-uncased'      # HuggingFace model id or local path
+  hidden_dim: 768
+  text_proj_dim: 256                    # project BERT output to decoder dim
+  freeze_at: 0                          # 0 = train all, 6 = freeze first 6 layers
+  freeze_norm: True
+  max_tokens: 96                         # max text-token length per prompt
+  use_cache: True                       # enable text-embedding cache (§ II)
+
+
+# ---------------------------------------------------------------------------- #
+# Hybrid image encoder -- same structure as D-FINE, only `in_channels` and
+# `depth_mult` change per variant.
+# ---------------------------------------------------------------------------- #
+HybridEncoder:
+  in_channels: [512, 1024, 2048]
+  feat_strides: [8, 16, 32]
+
+  # intra
+  hidden_dim: 256
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 8
+  dim_feedforward: 1024
+  dropout: 0.
+  enc_act: 'gelu'
+
+  # cross
+  expansion: 1.0
+  depth_mult: 1
+  act: 'silu'
+
+
+# ---------------------------------------------------------------------------- #
+# LSDPE -- Lightweight Spectral-Decoupled Visual Prompt Encoder.
+# Parameter-free (alpha is the only knob). Defaults from paper Table VI.
+# Applied to the visual-prompt RoI feature map BEFORE fusion with text.
+# ---------------------------------------------------------------------------- #
+LSDPE:
+  alpha: 0.9                  # dominant-energy fraction used for rho*_c
+  in_channels: 256            # = encoder.hidden_dim
+
+
+# ---------------------------------------------------------------------------- #
+# LW-VTFE -- Lightweight Orthogonal Vision-Text Feature Enhancer.
+# Applied per query token: fuses text feature with the per-token visual
+# feature.  Introduces exactly C*C+1 parameters (paper: ~70% fewer than
+# standard cross-attention).
+# ---------------------------------------------------------------------------- #
+LWVTFE:
+  embed_dim: 256              # = decoder.hidden_dim
+  tau_init: 0.1               # learnable softmax temperature init (§ III.C)
+
+
+# ---------------------------------------------------------------------------- #
+# DFINE decoder -- the FINE regression head is kept verbatim; only
+# `num_layers` and `num_queries` change per variant (paper: 500 queries).
+# ---------------------------------------------------------------------------- #
+DFINETransformer:
+  feat_channels: [256, 256, 256]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 256
+  num_levels: 3
+
+  num_layers: 6
+  eval_idx: -1
+  num_queries: 500            # paper § IV.A: 500 object queries
+
+  num_denoising: 100
+  label_noise_ratio: 0.5
+  box_noise_scale: 1.0
+
+  # NEW (D-FINE) -- the FINE regression distribution head.
+  reg_max: 32
+  reg_scale: 4
+
+  # Auxiliary decoder layers dimension scaling
+  layer_scale: 1
+
+  # Omni-DFINE: text-vision fusion is injected inside each decoder layer
+  # (the fusion module above is invoked per layer). The decoder needs to
+  # know which fusion module to use -- this name must match `OmniDFINE.fusion`.
+  fusion_module: LWVTFE
+
+  num_points: [3, 6, 3]
+  cross_attn_method: default
+  query_select_method: default
+
+
+DFINEPostProcessor:
+  num_top_queries: 300
+
+
+# ---------------------------------------------------------------------------- #
+# Criterion -- combines the original D-FINE losses (VFL + L1 + GIoU + FGL +
+# DDF) with the new HHA contrastive loss used to align image embeddings with
+# text/visual-prompt embeddings on the unit hypersphere.
+# ---------------------------------------------------------------------------- #
+OmniDFINECriterion:
+  # D-FINE classification + box losses (unchanged from D-FINE)
+  weight_dict:
+    {
+      loss_vfl: 1,
+      loss_bbox: 5,
+      loss_giou: 2,
+      loss_fgl: 0.15,
+      loss_ddf: 1.5,
+      # NEW: HHA contrastive alignment (paper §III.D, Table V).
+      # The weight was tuned to ~1.0 in the paper; tune as you A/B test.
+      loss_hha: 1.0,
+    }
+  losses: ['vfl', 'boxes', 'local', 'hha']
+  alpha: 0.75
+  gamma: 2.0
+  reg_max: 32
+
+  matcher:
+    type: HungarianMatcher
+    weight_dict: {cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    alpha: 0.25
+    gamma: 2.0
+
+  # HHA-specific hyperparameters (paper §III.D and Table VI).
+  HHA:
+    eta: 0.07                 # temperature inside the contrastive softmax
+    lambda_ref: 0.3           # margin scaling factor -- m(j) = lambda_ref / H_j
+    num_negatives: 16         # K negatives per anchor (paper uses "K" negatives)
+    reduction: mean

@@ -1,0 +1,70 @@
+# ============================================================================
+# Omni-DFINE optimizer defaults.
+# Mirrors `configs/dfine/include/optimizer.yml` of D-FINE with adjustments
+# from paper § IV.A:
+#
+#   * AdamW, base lr = 1e-4
+#   * Image + text backbone lr = 5e-5 (paper, not the D-FINE default of 1.25e-5)
+#   * batch size 288, 20 epochs (paper § IV.A)
+#
+# The variant configs override `lr` and `epochs` as needed (the paper trains
+# all variants for 20 epochs on Objects365+GoldG; we keep that here and let
+# `epochs` be tuned by the variant yml).
+# ============================================================================
+
+use_amp: True
+use_ema: True
+ema:
+  type: ModelEMA
+  decay: 0.9999
+  warmups: 1000
+  start: 0
+
+
+# Paper § IV.A: 20 epochs on Objects365 + GoldG.
+# Per-variant configs may shorten this if the dataset is restricted to
+# Objects365 only (Table VIII: Objects365-only still produces strong results).
+epochs: 20
+clip_max_norm: 0.1
+
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      # Image backbone (HGNetv2).
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.00005                    # paper: 5e-5 for image + text backbones
+    -
+      # Image backbone norms.
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      # Text backbone (BERT) -- exclude norm.
+      params: '^(?=.*text_backbone)(?!.*norm|bn).*$'
+      lr: 0.00005
+    -
+      # Text backbone norms.
+      params: '^(?=.*text_backbone)(?=.*norm|bn).*$'
+      lr: 0.00005
+      weight_decay: 0.
+    -
+      # Encoder / decoder / fusion / LSDPE biases and norms -- no weight decay.
+      params: '^(?=.*(?:encoder|decoder|fusion|prompt_encoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0001                        # paper base lr
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+
+lr_scheduler:
+  type: MultiStepLR
+  milestones: [500]
+  gamma: 0.1
+
+
+lr_warmup_scheduler:
+  type: LinearWarmup
+  warmup_duration: 500
