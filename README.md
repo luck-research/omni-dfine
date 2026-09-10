@@ -120,7 +120,9 @@ detection and grounding datasets (paper Table I):
 | Omni-DFINE (L) | Text        | 46.1    | 33.1              | 28.5            |
 | Omni-DFINE (L) | Text+Visual | 46.9    | 35.8              | 31.2            |
 
-* model will be soon ...
+
+* model will be soon 
+* Bert model: https://huggingface.co/google-bert/bert-base-cased
   
 **Headline takeaways:**
 
